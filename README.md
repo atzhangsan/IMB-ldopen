@@ -527,6 +527,44 @@ int main(){
 來源：简书
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
+```
 
+ 通过__builtin_return_address获取调用者函数地址
+ 2.1 背景介绍：__builtin_return_address是GCC提供的一个内置函数，用于判断给定函数的调用者。
 
+6.49 Getting the Return or Frame Address of a Function里面有更多获取函数调用者的介绍。
 
+void * __builtin_return_address (unsigned int level)
+level为参数，如果level为0，那么就是请求当前函数的返回地址；如果level为1，那么就是请求进行调用的函数的返回地址。
+```
+```
+(gdb) 
+0x00000000004005ea	14	{
+1: x/10i $pc
+=> 0x4005ea <func_d+1>:	mov    %rsp,%rbp
+   0x4005ed <func_d+4>:	callq  0x40052d <func_e>
+   0x4005f2 <func_d+9>:	pop    %rbp
+   0x4005f3 <func_d+10>:	retq   
+   0x4005f4 <func_c>:	push   %rbp
+   0x4005f5 <func_c+1>:	mov    %rsp,%rbp
+   0x4005f8 <func_c+4>:	callq  0x4005e9 <func_d>
+   0x4005fd <func_c+9>:	pop    %rbp
+   0x4005fe <func_c+10>:	retq   
+   0x4005ff <func_b>:	push   %rbp
+
+```
+```
+func_e(0)=0x4005f2
+func_e(1)=0x4005fd
+func_e(2)=0x400608
+func_e(3)=0x400613
+func_e(4)=0x400629
+func_e(5)=0x7ffff7a39c05
+func_a=0x40060a, func_b=0x4005ff, func_c=0x4005f4, func_d=0x4005e9, func_e=0x40052d
+
+查看function-e函数的返回地址（level为参数，如果level为0，那么就是请求当前函数的返回地址；）
+则当前函数的代码地址func_e=0x40052d，那调用他的函数为func_d，调用函数返回地址为 call func_e下一个指令地址，查看反汇编代码
+0x4005ed <func_d+4>:	callq  0x40052d <func_e>
+   0x4005f2 <func_d+9>:	pop    %rbp
+则0x0x4005f2与  __builtin_return_address(0) 对应
+```

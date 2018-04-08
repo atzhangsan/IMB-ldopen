@@ -634,3 +634,50 @@ strchr() 将会找出 str 字符串中第一次出现的字符 c 的地址，然
 
 提示：如果希望查找某字符在字符串中最后一次出现的位置，可以使用 strrchr() 函数。
 ```
+```
+几个结构
+struct libname_list
+  {
+    const char *name;		/* Name requested (before search).  */
+    struct libname_list *next;	/* Link to next name for this object.  */
+    int dont_free;		/* Flag whether this element should be freed
+				   if the object is not entirely unloaded.  */
+  };
+  /* A dummy link map for the executable, used by dlopen to access the global
+   scope.  We don't export any symbols ourselves, so this can be minimal.  */
+static struct link_map _dl_main_map =
+  {
+    .l_name = (char *) "",
+    .l_real = &_dl_main_map,
+    .l_ns = LM_ID_BASE,
+    .l_libname = &(struct libname_list) { .name = "", .dont_free = 1 },
+    .l_searchlist =
+      {
+	.r_list = &(struct link_map *) { &_dl_main_map },
+	.r_nlist = 1,
+      },
+    .l_symbolic_searchlist = { .r_list = &(struct link_map *) { NULL } },
+    .l_type = lt_executable,
+    .l_scope_mem = { &_dl_main_map.l_searchlist },
+    .l_scope_max = (sizeof (_dl_main_map.l_scope_mem)
+		    / sizeof (_dl_main_map.l_scope_mem[0])),
+    .l_scope = _dl_main_map.l_scope_mem,
+    .l_local_scope = { &_dl_main_map.l_searchlist },
+    .l_used = 1,
+    .l_flags_1 = DF_1_NODEFLIB,
+    .l_tls_offset = NO_TLS_OFFSET,
+    .l_serial = 1,
+  };
+  /* Namespace information.  */
+struct link_namespaces _dl_ns[DL_NNS] =
+  {
+    [LM_ID_BASE] =
+      {
+	._ns_loaded = &_dl_main_map,
+	._ns_nloaded = 1,
+	._ns_main_searchlist = &_dl_main_map.l_searchlist,
+      }
+  };
+  
+  
+  

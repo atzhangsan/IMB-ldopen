@@ -70,4 +70,7 @@ struct link_namespaces _dl_ns[DL_NNS] =
       }
   };
   ```
-  
+  进入函数时候参数 l_map_object (loader=loader@entry=0x7ffff7ffe150, name=name@entry=0x400c20 "./libadd_c.so", type=type@entry=2, 
+    trace_mode=trace_mode@entry=0, mode=mode@entry=-1879048191, nsid=0) at dl-load.c:2094
+    
+

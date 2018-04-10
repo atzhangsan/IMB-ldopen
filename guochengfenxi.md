@@ -1,4 +1,4 @@
-glibc2.17适用于centos7.04
+glibc2.17适用于centos7.04（先设置断定b dl_open_worker，然后display/8i $pc ,然后输入ni，和si 对照源码，和c原件中的行号对比）
 =========================
 ```
 dl_open_worker (void *a)

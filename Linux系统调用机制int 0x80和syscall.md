@@ -262,5 +262,296 @@ static const u64 boot_gdt[] __attribute__((aligned(16))) = {
 };
 这是对系统启动时对全局符号表GDT的初始化。
 ```
+ GNU汇编器 编写汇编函数 [李园7舍_404]
+ ==================================
+```
+《professional Assembly Language》Richard Blum
 
+ 
+
+编写一个汇编函数时，必须考虑这些需求：“怎么给函数传输数据（相当于C中的实参）”、“怎么处理传入函数内的数据”及“如何处理函数的输出，如何返回给父函数”。子函数内的代码同主函数内的代码一样，都能够访问寄存器和内存空间。
+
+ 
+
+给汇编函数传递参数的机制包括：
+
+使用寄存器。[快速简单]
+使用全局变量。
+使用栈。[复杂的汇编程序采用]
+ 
+
+处理传给函数数据可以使用AT&T汇编指令、相关的指令集(FPU,MMX,SSE)或系统调用。
+
+ 
+
+处理函数的输出，一般是希望子函数的输出能够返回到父函数中进一步使用，达到这个机制有多种方法。使用得最多的有以下两种方式：
+
+将结果存到一个或多个寄存器中。
+将结果存放到全局变量的内存空间内。
+ 
+
+1 GNU汇编函数
+(1)定义函数
+不同的汇编器所支持的定义汇编函数的方式不同。
+
+ 
+
+对于GNU 汇编器来说，定义一个汇编函数必须依照以下格式：
+
+.type fun_name, @function
+
+fun_name:
+
+    #content
+
+ret
+.type指令指定fun_name为其它汇编程序调用此函数时的地址。
+fun_name也为函数名。
+@function表示函数内容开始。
+ret指令表示函数结束，返回到父函数调用子函数处。
+ 
+
+(2)调用函数
+在付函数中调用子函数的格式为：
+
+call  fun_name
+
+ call是调用子函数的汇编指令。
+fun_name是定义子函数时.type指定的函数地址。
+ 
+
+2 编写汇编函数
+当知道某种汇编器所支持的函数定义格式后，就可以根据汇编函数的需求来编写一个函数了。
+
+ 
+
+(1)使用寄存器和全局变量传递函数参数
+使用寄存器给汇编函数传递参数的实质是：在主函数中先将数据保存到某个寄存器中，然后在函数中直接使用这个寄存器中的值。
+
+1 #ASM function use register give the inputdatas
+
+2 .section .data
+
+3        str: .ascii "ASM THIRD DAY\n"
+
+4        sl = .-str
+
+5
+
+6 .section .text
+
+7 .global _start
+
+8 _start:
+
+9        movl $0, %eax          #Init eax
+
+10       movl $2, %ebx          #Preparedata in ebx first
+
+11       call add_fun            #Then callchild function
+
+12
+
+13                              #Systemcall:   write()
+
+14       movl $1, %ebx
+
+15       movl $str, %ecx
+
+16       movl $sl, %edx
+
+17       int $0x80
+
+18
+
+19       movl $1, %eax           #Systemcall:   exit
+
+20       movl $0, %ebx
+
+21       int $0x80
+
+22
+
+23
+
+24 #The method of GNU define a funtionod
+
+25 .type add_fun, @function
+
+26 add_fun:
+
+27       add %ebx, %ebx
+
+28       movl %ebx, %eax
+
+29 ret
+在24行出，依照GNU汇编格式定义了一个函数。
+
+ 
+
+在主程序中，movl $2, %ebx将常量2赋值给寄存器ebx。这就将add_fun子函数要用的数据准备好了，接下来就调用add_fun子函数，用add指令对ebx寄存器中的数据进行处理。这就是使用寄存器给子函数准备数据的方式。
+
+ 
+
+在主程序开始时将eax初始化为0，在调用完add_fun子函数后，子函数将得到的结果保存在ebx及eax中，都为4。所以在接下来的系统调用语句中不再需要对eax专门赋值为4。这就是将子函数的输出结果保存在寄存器中供父函数后继使用。
+
+ 
+
+通过全局变量给子函数传递数据，只需要在数据段(.data或者.bbs)定义一个变量，在主函数中初始化后再调用子函数来使用变量。将子函数的输出结果保存在全局变量中，只需要在数据段中定义一个变量，然后在子函数中将函数的输出结果保存到这个变量中，最后在父函数中使用即可。
+
+ 
+
+只要以上系统写调用成功就说明寄存器参数传输及结果返回都没错:
+
+misskissC:~/asm/function# as fun_register.s-o fun.o
+
+misskissC:~/asm/function# ld fun.o -o fun
+
+misskissC:~/asm/function# ./fun
+
+ASM THIRD DAY
+
+ 
+
+在父函数中调用子函数时，一定要符合子函数的需求：准备好子函数要用到的寄存器和变量，准备好子函数输出结果的保存地，同时在主函数中也要知道函数输出保存在了哪里，因为还要使用子函数的输出结果。主（主程序）、子函数之间要配合好。
+
+ 
+
+(2) 使用C风格传参方式
+所谓的C风格传参方式实际上使用栈来给子函数准备数据。这适合于比较复杂的汇编程序。对于复杂的汇编程序来说，使用寄存器或者全局变量给函数准备数据将是一种nightmare。
+
+ 
+
+[1]栈
+用栈为子函数准备数据不免要使用栈。栈具有如下特点：
+
+只有在栈顶发生操作：入栈得新栈顶，出栈移除当前栈顶元素。
+入栈指令push，出栈指令pop。
+堆栈指针寄存器esp需要始终指向栈顶。指向：保存的是栈顶的地址。ebp用来保存栈基址。
+高地址内存叫栈底，低内存地址叫栈顶。
+入栈发生后，esp值减小即指向更小的地址。
+除了用push、pop指令操作栈之外，也可以用栈的地址来操作。通常将esp的值拷贝给ebp后，通过ebp来操作栈。
+
+ 
+
+[2]通过栈为函数准备数据
+将子函数需要用到的数据存到栈里。但程序员要让存在栈里的顺序和子函数使用的顺序相对应。
+
+ 
+
+这里需要注意的一点是：当调用子函数的时候，系统会将当前地址压入栈中。当子函数执行完之后就返回到那个地址处，以便接着执行调用子函数的后一条语句。
+
+ 
+
+除了使用push、pop指令操作栈之外，还用ebp寄存器来访问栈中的成员。
+
+ 
+
+看以下代码：
+
+1  #Give data to child function by stack
+
+ 2 .section .data
+
+ 3         str: .ascii "ASMTHIRD FOURTH DAY\n"
+
+ 4         sl = .-str
+
+  5
+
+  6 .section .text
+
+  7 .global _start
+
+  8 _start:
+
+ 9         pushl $4                #Be ready data for child fun bystack
+
+ 10        call give_value_to_eax
+
+ 11
+
+ 12        movl $1, %ebx           #Systemcall:   write()
+
+ 13        movl $str, %ecx
+
+ 14        movl $sl, %edx
+
+ 15        int $0x80
+
+ 16
+
+ 17        movl $1, %eax           #System call:   exit
+
+ 18        movl $0, %ebx
+
+ 19        int $0x80
+
+ 20
+
+ 21
+
+ 22 #child fun
+
+ 23 .type give_value_to_eax, @function
+
+ 24  give_value_to_eax:
+
+ 25        pushl  %ebp             #Save ebp value
+
+ 26        movl %esp, %ebp         #Get stacktop address for ebp
+
+ 27
+
+ 28        movl 8(%ebp), %eax      #%eax 'svalue is the bottom value of the stack
+
+ 29
+
+ 30        pop %ebp                #Get theold ebp value again
+
+ 31 ret
+在主函数中，是两个系统调用的代码。在write系统调用代码中，eax的值通过子函数give_value_to_eax来赋予。
+在give_value_to_eax子函数中，使用在主函数中（第9行）在栈中准备的数据来给eax赋值。因为前面所笔记的压入栈中的还有当前调用子函数的地址，故而用ebp来访问原先压入栈中的数据。
+在子函数中，第25和30行表示备份原来旧的ebp的值。26行表示将指向栈顶的esp的值赋给ebp。28行通过ebp找到主函数为子函数准备的数据赋给eax，从而在写系统调用中不用写movl $4, %eax语句。
+ 
+
+在linux平台上编译链接以上程序，并执行：
+
+misskissC:~/asm/function# as fun_stack.s-o fun.o
+
+misskissC:~/asm/function# ld fun.o -o fun
+
+misskissC:~/asm/function# ./fun
+
+ASM THIRD FOURTH  DAY
+
+ 
+
+其实用ebp来获取esp的值，然后通过ebp来访问栈中的数据是为了保证，esp一直指向栈顶。同时采取这样的方式，它们在栈中有以下的关系：
+
+
+
+ 
+用ebp寄存器防栈中元素时栈中数据的关系
+
+ 
+
+在函数的末尾，使用pop %ebp指令后，栈顶就是Return Address了。就能够准确的返回调用子函数处执行下一条语句。而且在子函数未返回前，还可以通过ebp取合适的偏移量访问到子函数的数据。而esp继续指向在子函数中的栈顶。 
+
+ 
+
+当要用栈来存储函数内的局部变量时，就只需要将esp继续往开辟新的栈顶即可：
+
+
+
+ 
+实现上图的方式有多种。
+
+当esp还指向Return Address的时候直接将esp移到上图位置，目的是开辟-12 bytes的栈空间。然后用-n(%ebp)来访问每个局部变量的占内存（赋值，取值），然后将esp的值还原到Return Address处。要保证局部变量们出栈才可以将esp直接加到原来的地方。
+另一种方式是通过esp用push指令存储局部变量，然后再用pop指令回到原来的地方。
+不管哪一种方式都要保证经esp开辟的每个栈空间得以出栈。
+ 
+
+此次笔记记录完毕。
+```
 

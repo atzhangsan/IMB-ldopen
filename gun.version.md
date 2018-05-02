@@ -20,3 +20,9 @@ Hex dump of section '.gnu.version':
   008:   1 (*global*)      1 (*global*)      1 (*global*)      1 (*global*)   
   00c:   1 (*global*)   
 ```
+类型
+-----
+```
+typedef Elf64_Half Elf64_Versym;
+16bit 一个元素
+```

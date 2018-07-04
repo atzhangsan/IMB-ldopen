@@ -1,0 +1,23 @@
+Centos6.6 yum源更新方法
+======================
+···
+Centos6.6 yum源更新
+1、备份
+
+cp /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d//CentOS-Base.repo.ori
+
+2、下载新的CentOS-Base.repo 到/etc/yum.repos.d/
+
+wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-6.repo
+
+3、清理
+
+ yum clean all
+
+4、更新缓存
+
+yum makecache
+yum install tree -y
+yum update -y
+···
+···https://blog.csdn.net/owangf_dl/article/details/78966369···
